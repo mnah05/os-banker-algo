@@ -1,0 +1,18 @@
+# Build artifacts
+banker
+banker.exe
+
+# Debug symbols
+banker.dSYM/
+*.dSYM/
+
+# Object files
+*.o
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
