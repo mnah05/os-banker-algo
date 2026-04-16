@@ -1,131 +1,186 @@
 /*
  * main.c
- * Entry point for the Banker's Algorithm Cloud Computing Simulation.
- *
- * This program demonstrates deadlock avoidance using the Banker's Algorithm.
- * VMs (processes) compete for shared resources (CPU, RAM, Storage, etc.).
- *
- * Flow:
- *   1. Take all input from the user (VMs, resources, matrices)
- *   2. Compute and display Need matrix
- *   3. Display Allocation, Max, Need, and Available in a formatted table
- *   4. Run the Safety Algorithm — report safe/unsafe state with sequence
- *   5. Interactive loop: user can make resource requests, re-check safety
+ * Entry point for simplified Banker's Algorithm.
+ * Focuses on safety algorithm only.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "banker.h"
 
-/*
- * display_menu - Show the interactive menu options to the user.
- */
-static void display_menu(void)
+void read_manual_input(SystemState *state)
 {
-    printf("\n  OPTIONS:\n");
-    printf("  [1] Request resources for a VM\n");
-    printf("  [2] Display current matrices\n");
-    printf("  [3] Run safety algorithm\n");
-    printf("  [0] Exit\n");
-    printf("  Enter choice: ");
-}
-
-/*
- * handle_request - Prompt user for a VM ID and resource request,
- * then process the request through the Banker's Algorithm.
- */
-static void handle_request(SystemState *state)
-{
-    int vm_id;
-    int request[MAX_RESOURCES];
-
-    /* Get the VM number from the user */
-    printf("\n  Enter VM number (0-%d): ", state->n - 1);
-    if (scanf("%d", &vm_id) != 1) {
-        printf("  Invalid input. Please enter a number.\n");
-        while (getchar() != '\n');
-        return;
-    }
-
-    /* Validate VM number is in range */
-    if (vm_id < 0 || vm_id >= state->n) {
-        printf("  Invalid VM number. Must be between 0 and %d.\n", state->n - 1);
-        return;
-    }
-
-    /* Get the requested resources */
-    printf("  Enter requested resources (%d values): ", state->m);
+    printf("Enter number of VMs (1-%d): ", MAX_VMS);
+    scanf("%d", &state->n);
+    
+    printf("Enter number of resource types (1-%d): ", MAX_RESOURCES);
+    scanf("%d", &state->m);
+    
+    printf("Enter Available vector (%d values): ", state->m);
     for (int j = 0; j < state->m; j++) {
-        if (scanf("%d", &request[j]) != 1) {
-            printf("  Invalid input.\n");
-            while (getchar() != '\n');
-            return;
-        }
-        if (request[j] < 0) {
-            printf("  Invalid request. Resource values cannot be negative.\n");
-            return;
+        scanf("%d", &state->available[j]);
+    }
+    
+    printf("Enter Max matrix (%d x %d):\n", state->n, state->m);
+    for (int i = 0; i < state->n; i++) {
+        printf("  VM %d: ", i);
+        for (int j = 0; j < state->m; j++) {
+            scanf("%d", &state->max[i][j]);
         }
     }
-
-    /* Process the request through the Banker's Algorithm */
-    request_resources(state, vm_id, request);
-
-    /* Show updated system state after the request */
-    display_matrices(state);
+    
+    printf("Enter Allocation matrix (%d x %d):\n", state->n, state->m);
+    for (int i = 0; i < state->n; i++) {
+        printf("  VM %d: ", i);
+        for (int j = 0; j < state->m; j++) {
+            scanf("%d", &state->allocation[i][j]);
+        }
+    }
 }
 
-int main(void)
+bool load_test_case(SystemState *state, int case_number)
+{
+    FILE *file = fopen("test_cases.txt", "r");
+    if (!file) {
+        printf("Error: Could not open test_cases.txt\n");
+        return false;
+    }
+    
+    char line[256];
+    bool found = false;
+    int lines_read = 0;
+    
+    while (fgets(line, sizeof(line), file)) {
+        // Skip comments and empty lines
+        if (line[0] == '#' || line[0] == '\n') continue;
+        
+        // Remove newline
+        line[strcspn(line, "\n")] = 0;
+        
+        // Check for TEST_CASE marker
+        if (strncmp(line, "TEST_CASE", 9) == 0) {
+            int current_case;
+            if (sscanf(line + 9, "%d", &current_case) == 1) {
+                if (current_case == case_number) {
+                    found = true;
+                    lines_read = 0;
+                } else if (found) {
+                    // We've passed the target test case
+                    break;
+                }
+            }
+            continue;
+        }
+        
+        if (!found) continue;
+        
+        // Check for END marker
+        if (strcmp(line, "END") == 0) {
+            break;
+        }
+        
+        // Read data based on line number
+        if (lines_read == 0) {
+            // n
+            state->n = atoi(line);
+        } else if (lines_read == 1) {
+            // m
+            state->m = atoi(line);
+        } else if (lines_read == 2) {
+            // available vector
+            char *token = strtok(line, " ");
+            for (int j = 0; j < state->m && token; j++) {
+                state->available[j] = atoi(token);
+                token = strtok(NULL, " ");
+            }
+        } else if (lines_read <= 2 + state->n) {
+            // max matrix rows
+            int row = lines_read - 3;
+            char *token = strtok(line, " ");
+            for (int j = 0; j < state->m && token; j++) {
+                state->max[row][j] = atoi(token);
+                token = strtok(NULL, " ");
+            }
+        } else if (lines_read <= 2 + 2 * state->n) {
+            // allocation matrix rows
+            int row = lines_read - 3 - state->n;
+            char *token = strtok(line, " ");
+            for (int j = 0; j < state->m && token; j++) {
+                state->allocation[row][j] = atoi(token);
+                token = strtok(NULL, " ");
+            }
+        }
+        
+        lines_read++;
+    }
+    
+    fclose(file);
+    
+    if (!found) {
+        printf("Error: Test case %d not found\n", case_number);
+        return false;
+    }
+    
+    return true;
+}
+
+void print_result(bool safe, int safe_sequence[], int n)
+{
+    if (safe) {
+        printf("\nSystem is SAFE\n");
+        printf("Safe sequence: ");
+        for (int i = 0; i < n; i++) {
+            printf("%d", safe_sequence[i]);
+            if (i < n - 1) printf(" -> ");
+        }
+        printf("\n");
+    } else {
+        printf("\nSystem is UNSAFE\n");
+        printf("No safe sequence exists\n");
+    }
+}
+
+int main()
 {
     SystemState state;
     int safe_sequence[MAX_VMS];
     int choice;
-
-    /* Display welcome banner */
-    print_separator();
-    printf("   BANKER'S ALGORITHM SIMULATION\n");
-    printf("   Deadlock Avoidance in Cloud Computing\n");
-    printf("   VMs competing for shared resources\n");
-    print_separator();
-
-    /* Step 1: Take all input from the user */
-    input_data(&state);
-
-    /* Step 2: Display the complete system state (Allocation, Max, Need, Available) */
-    display_matrices(&state);
-
-    /* Step 3: Run initial safety check and report safe/unsafe + sequence */
-    printf("  --- Initial Safety Check ---\n");
-    safety_algorithm(&state, safe_sequence);
-
-    /* Step 4: Interactive loop for resource requests */
-    while (1) {
-        display_menu();
-
-        if (scanf("%d", &choice) != 1) {
-            printf("  Invalid input. Please enter a number.\n");
-            while (getchar() != '\n');
-            continue;
+    
+    printf("=== Banker's Algorithm Safety Check ===\n");
+    printf("1. Enter data manually\n");
+    printf("2. Load test case\n");
+    printf("Enter choice: ");
+    scanf("%d", &choice);
+    
+    if (choice == 1) {
+        read_manual_input(&state);
+    } else if (choice == 2) {
+        printf("Available test cases:\n");
+        printf("  1. Safe state (5 VMs, 3 resources)\n");
+        printf("  2. Unsafe state (2 VMs, 2 resources)\n");
+        printf("  3. Safe small example (2 VMs, 2 resources)\n");
+        printf("Enter test case number (1-3): ");
+        int case_num;
+        scanf("%d", &case_num);
+        
+        if (!load_test_case(&state, case_num)) {
+            printf("Falling back to manual input.\n");
+            read_manual_input(&state);
         }
-
-        switch (choice) {
-        case 1:
-            handle_request(&state);
-            break;
-        case 2:
-            display_matrices(&state);
-            break;
-        case 3:
-            printf("\n  --- Running Safety Algorithm ---\n");
-            safety_algorithm(&state, safe_sequence);
-            break;
-        case 0:
-            printf("\n  Shutting down. Goodbye!\n\n");
-            return 0;
-        default:
-            printf("  Invalid choice. Please try again.\n");
-            break;
-        }
+    } else {
+        printf("Invalid choice. Using manual input.\n");
+        read_manual_input(&state);
     }
-
+    
+    // Compute Need matrix
+    compute_need(&state);
+    
+    // Run safety algorithm
+    bool safe = safety_algorithm(&state, safe_sequence);
+    
+    // Print result
+    print_result(safe, safe_sequence, state.n);
+    
     return 0;
 }

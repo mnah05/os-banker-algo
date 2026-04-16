@@ -1,0 +1,51 @@
+# Banker's Algorithm Test Cases
+# Format:
+# TEST_CASE <number>
+# <n>
+# <m>
+# <available1> <available2> ... <available_m>
+# <max_row0>
+# <max_row1>
+# ...
+# <max_row_n-1>
+# <allocation_row0>
+# <allocation_row1>
+# ...
+# <allocation_row_n-1>
+# END
+
+TEST_CASE 1
+5
+3
+3 3 2
+7 5 3
+3 2 2
+9 0 2
+2 2 2
+4 3 3
+0 1 0
+2 0 0
+3 0 2
+2 1 1
+0 0 2
+END
+
+TEST_CASE 2
+2
+2
+0 1
+2 2
+2 2
+1 2
+1 0
+END
+
+TEST_CASE 3
+2
+2
+5 5
+5 5
+5 5
+0 0
+0 0
+END
