@@ -13,15 +13,15 @@ void read_manual_input(SystemState *state)
 {
     printf("Enter number of VMs (1-%d): ", MAX_VMS);
     scanf("%d", &state->n);
-    
+
     printf("Enter number of resource types (1-%d): ", MAX_RESOURCES);
     scanf("%d", &state->m);
-    
+
     printf("Enter Available vector (%d values): ", state->m);
     for (int j = 0; j < state->m; j++) {
         scanf("%d", &state->available[j]);
     }
-    
+
     printf("Enter Max matrix (%d x %d):\n", state->n, state->m);
     for (int i = 0; i < state->n; i++) {
         printf("  VM %d: ", i);
@@ -29,7 +29,7 @@ void read_manual_input(SystemState *state)
             scanf("%d", &state->max[i][j]);
         }
     }
-    
+
     printf("Enter Allocation matrix (%d x %d):\n", state->n, state->m);
     for (int i = 0; i < state->n; i++) {
         printf("  VM %d: ", i);
@@ -46,18 +46,18 @@ bool load_test_case(SystemState *state, int case_number)
         printf("Error: Could not open test_cases.txt\n");
         return false;
     }
-    
+
     char line[256];
     bool found = false;
     int lines_read = 0;
-    
+
     while (fgets(line, sizeof(line), file)) {
         // Skip comments and empty lines
         if (line[0] == '#' || line[0] == '\n') continue;
-        
+
         // Remove newline
         line[strcspn(line, "\n")] = 0;
-        
+
         // Check for TEST_CASE marker
         if (strncmp(line, "TEST_CASE", 9) == 0) {
             int current_case;
@@ -72,14 +72,14 @@ bool load_test_case(SystemState *state, int case_number)
             }
             continue;
         }
-        
+
         if (!found) continue;
-        
+
         // Check for END marker
         if (strcmp(line, "END") == 0) {
             break;
         }
-        
+
         // Read data based on line number
         if (lines_read == 0) {
             // n
@@ -111,17 +111,17 @@ bool load_test_case(SystemState *state, int case_number)
                 token = strtok(NULL, " ");
             }
         }
-        
+
         lines_read++;
     }
-    
+
     fclose(file);
-    
+
     if (!found) {
         printf("Error: Test case %d not found\n", case_number);
         return false;
     }
-    
+
     return true;
 }
 
@@ -146,13 +146,13 @@ int main()
     SystemState state;
     int safe_sequence[MAX_VMS];
     int choice;
-    
+
     printf("=== Banker's Algorithm Safety Check ===\n");
     printf("1. Enter data manually\n");
     printf("2. Load test case\n");
     printf("Enter choice: ");
     scanf("%d", &choice);
-    
+
     if (choice == 1) {
         read_manual_input(&state);
     } else if (choice == 2) {
@@ -163,7 +163,7 @@ int main()
         printf("Enter test case number (1-3): ");
         int case_num;
         scanf("%d", &case_num);
-        
+
         if (!load_test_case(&state, case_num)) {
             printf("Falling back to manual input.\n");
             read_manual_input(&state);
@@ -172,15 +172,15 @@ int main()
         printf("Invalid choice. Using manual input.\n");
         read_manual_input(&state);
     }
-    
+
     // Compute Need matrix
     compute_need(&state);
-    
+
     // Run safety algorithm
     bool safe = safety_algorithm(&state, safe_sequence);
-    
+
     // Print result
     print_result(safe, safe_sequence, state.n);
-    
+
     return 0;
 }
